@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Классическая игра «Три в ряд» (Match-3) с эффектными анимациями, звуками, комбо и таблицей рекордов.">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Три в ряд | Match-3 — Игра с комбо и рекордами</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --bg-body: #f0f2f5;
+            --bg-panel: rgba(255, 255, 255, 0.92);
+            --text-primary: #1e2a3e;
+            --text-secondary: #2c3e50;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            --border-radius: 28px;
+            --canvas-bg: #ffffff;
+            --btn-bg: #ffffff;
+            --btn-hover: #f1f5f9;
+            --btn-active: #e2e8f0;
+            --accent: #3b82f6;
+            --error-flash: rgba(239, 68, 68, 0.3);
+            --combo-bg: rgba(59, 130, 246, 0.2);
+            --best-bg: rgba(34, 197, 94, 0.15);
+        }
+
+        body.dark {
+            --bg-body: #0f172a;
+            --bg-panel: rgba(30, 41, 59, 0.88);
+            --text-primary: #e2e8f0;
+            --text-secondary: #cbd5e1;
+            --canvas-bg: #1e293b;
+            --btn-bg: #334155;
+            --btn-hover: #475569;
+            --btn-active: #1e293b;
+            --accent: #60a5fa;
+            --error-flash: rgba(239, 68, 68, 0.5);
+            --combo-bg: rgba(96, 165, 250, 0.25);
+            --best-bg: rgba(34, 197, 94, 0.2);
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg-body);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .game-container {
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 20px 20px 24px;
+            width: 100%;
+            max-width: 780px;
+            transition: background 0.3s ease;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: var(--btn-bg);
+            padding: 8px 18px;
+            border-radius: 60px;
+            box-shadow: inset 0 1px 1px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        .best-value {
+            color: #22c55e;
+        }
+
+        .combo-box {
+            background: var(--combo-bg);
+            border: 1px solid var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            border: none;
+            border-radius: 48px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            background: var(--btn-active);
+        }
+
+        @media (hover: hover) {
+            .btn:hover {
+                background: var(--btn-hover);
+                transform: translateY(-2px);
+            }
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 12px 0 8px;
+        }
+
+        canvas {
+            background-color: var(--canvas-bg);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            height: auto;
+            cursor: pointer;
+            touch-action: none;
+            transition: background 0.2s;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status {
+            background: rgba(0,0,0,0.1);
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.05);
+            padding: 6px 12px;
+            border-radius: 40px;
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 16px;
+            }
+            .stat-value {
+                font-size: 1.4rem;
+            }
+            .stat-card {
+                padding: 4px 12px;
+            }
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            .help-text {
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="game-header">
+        <div class="stats">
+            <div class="stat-card">
+                <span class="stat-label">СЧЁТ</span>
+                <span class="stat-value" id="scoreDisplay">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">🏆 РЕКОРД</span>
+                <span class="stat-value best-value" id="bestDisplay">0</span>
+            </div>
+            <div class="stat-card combo-box">
+                <span class="stat-label">🔥 COMBO</span>
+                <span class="stat-value" id="comboDisplay">0</span>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="btn" id="restartBtn">🔄 Новая игра</button>
+            <button class="btn" id="shuffleBtn">♻️ Перемешать</button>
+            <button class="btn" id="themeToggle">🌓 Тема</button>
+            <button class="btn" id="soundToggle">🔊 Звук вкл</button>
+        </div>
+    </div>
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="500" height="500" style="width:100%; height:auto; max-width:640px; aspect-ratio:1/1"></canvas>
+    </div>
+    <div class="info-panel">
+        <div class="help-text">✨ Свайп или клик по соседней фишке — собирайте комбо!</div>
+        <div class="status" id="gameStatus">Игра активна</div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- Конфигурация ----------
+        const ROWS = 8;
+        const COLS = 8;
+        const TYPES = 6;
+        let score = 0;
+        let bestScore = 0;
+        let soundEnabled = true;
+        let currentTheme = 'light';
+        let currentCombo = 0;
+        
+        let grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        let selectedRow = -1, selectedCol = -1;
+        let isAnimating = false;
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let cellW = 0, cellH = 0;
+        
+        const scoreSpan = document.getElementById('scoreDisplay');
+        const bestSpan = document.getElementById('bestDisplay');
+        const comboDisplaySpan = document.getElementById('comboDisplay');
+        const soundToggleBtn = document.getElementById('soundToggle');
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const restartBtn = document.getElementById('restartBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const statusSpan = document.getElementById('gameStatus');
+        
+        // ---------- Работа с рекордами ----------
+        function loadBestScore() {
+            const saved = localStorage.getItem('match3_best');
+            if (saved && !isNaN(parseInt(saved))) {
+                bestScore = parseInt(saved);
+            } else {
+                bestScore = 0;
+            }
+            bestSpan.innerText = bestScore;
+        }
+        function updateBestScore() {
+            if (score > bestScore) {
+                bestScore = score;
+                bestSpan.innerText = bestScore;
+                localStorage.setItem('match3_best', bestScore);
+                bestSpan.style.transform = 'scale(1.2)';
+                setTimeout(() => { bestSpan.style.transform = ''; }, 300);
+                if (soundEnabled) {
+                    playTone(880, 0.2, 'sine', 0.2);
+                    playTone(1100, 0.25, 'sine', 0.15, 0.1);
+                }
+            }
+        }
+        
+        // ---------- Web Audio ----------
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx && soundEnabled) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        function playTone(freq, duration, type = 'sine', volume = 0.2, delay = 0) {
+            if (!soundEnabled) return Promise.resolve();
+            initAudio();
+            if (!audioCtx) return Promise.resolve();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return new Promise((resolve) => {
+                const now = audioCtx.currentTime + delay;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + duration);
+                setTimeout(resolve, (delay + duration) * 1000);
+            });
+        }
+        function playMatchSound() {
+            playTone(880, 0.08, 'sine', 0.12);
+            playTone(1320, 0.1, 'sine', 0.1, 0.05);
+        }
+        function playErrorSound() {
+            playTone(220, 0.18, 'triangle', 0.15);
+            playTone(180, 0.2, 'triangle', 0.12, 0.12);
+        }
+        function playInvalidMoveSound() {
+            playTone(150, 0.12, 'sawtooth', 0.1);
+            playTone(120, 0.2, 'sawtooth', 0.08, 0.1);
+        }
+        function playSwapSuccessSound() {
+            playTone(660, 0.09, 'sine', 0.1);
+            playTone(880, 0.08, 'sine', 0.08, 0.05);
+        }
+        function playComboSound(level) {
+            if (!soundEnabled) return;
+            const freq = 440 + Math.min(level, 10) * 40;
+            playTone(freq, 0.12, 'sine', 0.12);
+        }
+        
+        // ---------- Тема ----------
+        function applyTheme() {
+            if (currentTheme === 'dark') document.body.classList.add('dark');
+            else document.body.classList.remove('dark');
+            drawBoard();
+        }
+        function toggleTheme() { currentTheme = currentTheme === 'light' ? 'dark' : 'light'; applyTheme(); }
+        
+        function updateScoreUI() {
+            scoreSpan.innerText = score;
+            if (score > bestScore) updateBestScore();
+        }
+        function updateComboUI() {
+            comboDisplaySpan.innerText = currentCombo;
+            if (currentCombo > 0) {
+                comboDisplaySpan.style.transform = 'scale(1.2)';
+                setTimeout(() => { if(comboDisplaySpan) comboDisplaySpan.style.transform = ''; }, 150);
+            }
+        }
+        function resetCombo() { currentCombo = 0; updateComboUI(); }
+        function randomChip() { return Math.floor(Math.random() * TYPES); }
+        
+        // ---------- Логика матчей ----------
+        function findAllMatches(board) {
+            let toRemove = Array(ROWS).fill().map(() => Array(COLS).fill(false));
+            let hasMatches = false;
+            for (let r = 0; r < ROWS; r++) {
+                let len = 1;
+                for (let c = 1; c <= COLS; c++) {
+                    if (c < COLS && board[r][c] === board[r][c-1] && board[r][c] !== -1) len++;
+                    else {
+                        if (len >= 3) for (let i = c-len; i < c; i++) toRemove[r][i] = true;
+                        hasMatches = hasMatches || len >= 3;
+                        len = 1;
+                    }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                let len = 1;
+                for (let r = 1; r <= ROWS; r++) {
+                    if (r < ROWS && board[r][c] === board[r-1][c] && board[r][c] !== -1) len++;
+                    else {
+                        if (len >= 3) for (let i = r-len; i < r; i++) toRemove[i][c] = true;
+                        hasMatches = hasMatches || len >= 3;
+                        len = 1;
+                    }
+                }
+            }
+            return { toRemove, hasMatches };
+        }
+        
+        function calculateScoreAndRemove(board, toRemove) {
+            let earned = 0, removedCount = 0;
+            for (let r = 0; r < ROWS; r++)
+                for (let c = 0; c < COLS; c++)
+                    if (toRemove[r][c]) removedCount++;
+            earned = removedCount * 10;
+            for (let r = 0; r < ROWS; r++) {
+                let len = 1;
+                for (let c = 1; c <= COLS; c++) {
+                    if (c < COLS && toRemove[r][c] && toRemove[r][c-1] && board[r][c] === board[r][c-1]) len++;
+                    else { if (len >= 4) earned += (len-3)*15; len = 1; }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                let len = 1;
+                for (let r = 1; r <= ROWS; r++) {
+                    if (r < ROWS && toRemove[r][c] && toRemove[r-1][c] && board[r][c] === board[r-1][c]) len++;
+                    else { if (len >= 4) earned += (len-3)*15; len = 1; }
+                }
+            }
+            for (let r = 0; r < ROWS; r++)
+                for (let c = 0; c < COLS; c++)
+                    if (toRemove[r][c]) board[r][c] = -1;
+            return earned;
+        }
+        
+        function applyGravityAndFillStatic(board) {
+            for (let c = 0; c < COLS; c++) {
+                const column = [];
+                for (let r = ROWS-1; r >= 0; r--) if (board[r][c] !== -1) column.push(board[r][c]);
+                while (column.length < ROWS) column.push(randomChip());
+                column.reverse();
+                for (let r = 0; r < ROWS; r++) board[r][c] = column[r];
+            }
+        }
+        
+        function hasValidMoves(board) {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (c+1 < COLS) {
+                        let copy = board.map(row => [...row]);
+                        [copy[r][c], copy[r][c+1]] = [copy[r][c+1], copy[r][c]];
+                        if (findAllMatches(copy).hasMatches) return true;
+                    }
+                    if (r+1 < ROWS) {
+                        let copy = board.map(row => [...row]);
+                        [copy[r][c], copy[r+1][c]] = [copy[r+1][c], copy[r][c]];
+                        if (findAllMatches(copy).hasMatches) return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // ---------- Улучшенные анимации ----------
+        function animateSwap(r1, c1, r2, c2, doSwapAndCheck) {
+            return new Promise((resolve) => {
+                if (isAnimating) return resolve(false);
+                isAnimating = true;
+                const startTime = performance.now();
+                const duration = 260;
+                const startPos1 = { x: c1 * cellW, y: r1 * cellH };
+                const startPos2 = { x: c2 * cellW, y: r2 * cellH };
+                const deltaX1 = (c2 - c1) * cellW;
+                const deltaY1 = (r2 - r1) * cellH;
+                const deltaX2 = -deltaX1;
+                const deltaY2 = -deltaY1;
+                
+                function step(now) {
+                    const elapsed = now - startTime;
+                    let t = Math.min(1, elapsed / duration);
+                    const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                    const rot = Math.sin(t * Math.PI) * 0.25;
+                    const scale = 1 + Math.sin(t * Math.PI) * 0.12;
+                    
+                    drawBoard();
+                    const chipType1 = grid[r1][c1];
+                    const chipType2 = grid[r2][c2];
+                    const x1 = startPos1.x + deltaX1 * ease;
+                    const y1 = startPos1.y + deltaY1 * ease;
+                    const x2 = startPos2.x + deltaX2 * ease;
+                    const y2 = startPos2.y + deltaY2 * ease;
+                    
+                    ctx.save();
+                    ctx.translate(x1 + cellW/2, y1 + cellH/2);
+                    ctx.rotate(rot);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-(x1 + cellW/2), -(y1 + cellH/2));
+                    drawChipAt(chipType1, x1, y1);
+                    ctx.restore();
+                    
+                    ctx.save();
+                    ctx.translate(x2 + cellW/2, y2 + cellH/2);
+                    ctx.rotate(-rot);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-(x2 + cellW/2), -(y2 + cellH/2));
+                    drawChipAt(chipType2, x2, y2);
+                    ctx.restore();
+                    
+                    if (t < 1) requestAnimationFrame(step);
+                    else {
+                        [grid[r1][c1], grid[r2][c2]] = [grid[r2][c2], grid[r1][c1]];
+                        drawBoard();
+                        doSwapAndCheck().then(result => {
+                            isAnimating = false;
+                            resolve(result);
+                        });
+                    }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+        
+        function animateElimination(positions) {
+            return new Promise((resolve) => {
+                if (positions.length === 0) { resolve(); return; }
+                const startTime = performance.now();
+                const duration = 200;
+                function step(now) {
+                    const elapsed = now - startTime;
+                    let t = Math.min(1, elapsed / duration);
+                    drawBoard();
+                    for (let {row, col} of positions) {
+                        const x = col * cellW;
+                        const y = row * cellH;
+                        const val = grid[row][col];
+                        if (val !== undefined && val !== -1) {
+                            const scale = 1 - t;
+                            const rot = t * 0.6;
+                            ctx.save();
+                            ctx.translate(x + cellW/2, y + cellH/2);
+                            ctx.rotate(rot);
+                            ctx.scale(scale, scale);
+                            ctx.translate(-(x + cellW/2), -(y + cellH/2));
+                            drawChipAt(val, x, y);
+                            ctx.restore();
+                        }
+                    }
+                    if (t < 1) requestAnimationFrame(step);
+                    else resolve();
+                }
+                requestAnimationFrame(step);
+            });
+        }
+        
+        async function animateGravityAndRefill() {
+            return new Promise((resolve) => {
+                const oldGrid = grid.map(row => [...row]);
+                const newGrid = Array(ROWS).fill().map(() => Array(COLS).fill(-1));
+                for (let c = 0; c < COLS; c++) {
+                    const columnValues = [];
+                    for (let r = ROWS-1; r >= 0; r--) if (oldGrid[r][c] !== -1) columnValues.push(oldGrid[r][c]);
+                    while (columnValues.length < ROWS) columnValues.push(randomChip());
+                    columnValues.reverse();
+                    for (let r = 0; r < ROWS; r++) newGrid[r][c] = columnValues[r];
+                }
+                let start = null;
+                const duration = 220;
+                grid = newGrid;
+                function step(now) {
+                    if (!start) start = now;
+                    const t = Math.min(1, (now - start) / duration);
+                    drawBoard();
+                    if (t < 1) requestAnimationFrame(step);
+                    else { drawBoard(); resolve(); }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+        
+        async function animateStableChain() {
+            let anyEarned = false;
+            while (true) {
+                const { toRemove, hasMatches } = findAllMatches(grid);
+                if (!hasMatches) break;
+                anyEarned = true;
+                const positionsToRemove = [];
+                for (let r = 0; r < ROWS; r++)
+                    for (let c = 0; c < COLS; c++)
+                        if (toRemove[r][c]) positionsToRemove.push({row: r, col: c});
+                
+                await animateElimination(positionsToRemove);
+                const earned = calculateScoreAndRemove(grid, toRemove);
+                if (earned > 0) {
+                    score += earned;
+                    updateScoreUI();
+                    currentCombo++;
+                    updateComboUI();
+                    if (soundEnabled) {
+                        playMatchSound();
+                        playComboSound(currentCombo);
+                    }
+                    const comboBonus = currentCombo * 5;
+                    score += comboBonus;
+                    updateScoreUI();
+                }
+                await animateGravityAndRefill();
+            }
+            if (anyEarned) {
+                statusSpan.innerText = `🔥 Комбо x${currentCombo}! +${currentCombo*5} бонус`;
+                setTimeout(() => { if(!isAnimating) statusSpan.innerText = 'Игра активна'; }, 1500);
+                resetCombo();
+            }
+            drawBoard();
+        }
+        
+        function drawChipAt(type, x, y) {
+            const colors = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC489A'];
+            const symbols = ['★', '●', '◆', '■', '▲', '♥'];
+            ctx.beginPath();
+            ctx.arc(x + cellW/2, y + cellH/2, cellW * 0.38, 0, Math.PI*2);
+            ctx.fillStyle = colors[type % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,240,0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.font = `bold ${Math.floor(cellW * 0.4)}px "Segoe UI", system-ui`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(symbols[type % symbols.length], x + cellW/2, y + cellH/2);
+        }
+        
+        function drawBoard() {
+            if (!ctx) return;
+            const w = canvas.width, h = canvas.height;
+            cellW = w / COLS;
+            cellH = h / ROWS;
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--canvas-bg') || '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    const val = grid[i][j];
+                    if (val !== undefined && val !== -1) {
+                        const x = j * cellW, y = i * cellH;
+                        ctx.save();
+                        ctx.shadowBlur = 2;
+                        ctx.shadowColor = "rgba(0,0,0,0.2)";
+                        ctx.beginPath();
+                        ctx.arc(x + cellW/2, y + cellH/2, cellW * 0.38, 0, Math.PI*2);
+                        ctx.fillStyle = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC489A'][val % 6];
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255,255,200,0.8)';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                        ctx.font = `bold ${Math.floor(cellW * 0.4)}px "Segoe UI", system-ui`;
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.shadowBlur = 1;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(['★', '●', '◆', '■', '▲', '♥'][val % 6], x + cellW/2, y + cellH/2);
+                        ctx.restore();
+                    }
+                }
+            }
+            if (selectedRow !== -1 && selectedCol !== -1 && !isAnimating) {
+                const x = selectedCol * cellW, y = selectedRow * cellH;
+                ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent') || '#3b82f6';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(x + cellW/2, y + cellH/2, cellW*0.44, 0, Math.PI*2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+        
+        // ---------- Анимации ошибок ----------
+        function animateErrorFlash() {
+            return new Promise((resolve) => {
+                const startTime = performance.now();
+                const duration = 250;
+                function step(now) {
+                    const t = Math.min(1, (now - startTime) / duration);
+                    drawBoard();
+                    ctx.save();
+                    ctx.fillStyle = `rgba(239, 68, 68, ${Math.sin(t * Math.PI) * 0.5})`;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                    if (t < 1) requestAnimationFrame(step);
+                    else { drawBoard(); resolve(); }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+        function animateBounceEdge(row, col) {
+            return new Promise((resolve) => {
+                const startTime = performance.now();
+                const duration = 200;
+                function step(now) {
+                    const t = Math.min(1, (now - startTime) / duration);
+                    const scale = 1 - (1 - 0.85) * Math.sin(t * Math.PI);
+                    drawBoard();
+                    const x = col * cellW, y = row * cellH;
+                    ctx.save();
+                    ctx.translate(x + cellW/2, y + cellH/2);
+                    ctx.scale(scale, scale);
+                    ctx.translate(-(x + cellW/2), -(y + cellH/2));
+                    const val = grid[row][col];
+                    if (val !== undefined && val !== -1) drawChipAt(val, x, y);
+                    ctx.restore();
+                    if (t < 1) requestAnimationFrame(step);
+                    else { drawBoard(); resolve(); }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+        
+        // ---------- Основной обмен ----------
+        async function trySwap(r1, c1, r2, c2) {
+            if (isAnimating) return false;
+            if (Math.abs(r1 - r2) + Math.abs(c1 - c2) !== 1) {
+                if (soundEnabled) playInvalidMoveSound();
+                await animateErrorFlash();
+                return false;
+            }
+            const testGrid = grid.map(row => [...row]);
+            [testGrid[r1][c1], testGrid[r2][c2]] = [testGrid[r2][c2], testGrid[r1][c1]];
+            if (!findAllMatches(testGrid).hasMatches) {
+                if (soundEnabled) playInvalidMoveSound();
+                await animateErrorFlash();
+                await animateBounceEdge(r1, c1);
+                await animateBounceEdge(r2, c2);
+                statusSpan.innerText = '❌ Нет совпадения';
+                setTimeout(() => { if(!isAnimating) statusSpan.innerText = 'Игра активна'; }, 800);
+                return false;
+            }
+            statusSpan.innerText = '✨ Комбо!';
+            if (soundEnabled) playSwapSuccessSound();
+            await animateSwap(r1, c1, r2, c2, async () => {
+                await animateStableChain();
+                return true;
+            });
+            selectedRow = -1; selectedCol = -1;
+            if (!hasValidMoves(grid)) {
+                statusSpan.innerText = '♻️ Нет ходов! Перемешиваю...';
+                await new Promise(r => setTimeout(r, 300));
+                shuffleBoard();
+            } else {
+                statusSpan.innerText = 'Игра активна';
+            }
+            drawBoard();
+            return true;
+        }
+        
+        function shuffleBoard() {
+            if (isAnimating) return;
+            resetCombo();
+            for (let r = 0; r < ROWS; r++)
+                for (let c = 0; c < COLS; c++)
+                    grid[r][c] = randomChip();
+            while (true) {
+                const { toRemove, hasMatches } = findAllMatches(grid);
+                if (!hasMatches) break;
+                calculateScoreAndRemove(grid, toRemove);
+                applyGravityAndFillStatic(grid);
+            }
+            selectedRow = -1; selectedCol = -1;
+            drawBoard();
+            if (!hasValidMoves(grid)) shuffleBoard();
+            statusSpan.innerText = 'Перемешано ✓';
+            setTimeout(() => { if(!isAnimating) statusSpan.innerText = 'Игра активна'; }, 1000);
+        }
+        
+        function restartGame() {
+            if (isAnimating) return;
+            resetCombo();
+            score = 0;
+            updateScoreUI();
+            for (let r = 0; r < ROWS; r++)
+                for (let c = 0; c < COLS; c++)
+                    grid[r][c] = randomChip();
+            while (true) {
+                const { toRemove, hasMatches } = findAllMatches(grid);
+                if (!hasMatches) break;
+                calculateScoreAndRemove(grid, toRemove);
+                applyGravityAndFillStatic(grid);
+            }
+            if (!hasValidMoves(grid)) shuffleBoard();
+            selectedRow = -1; selectedCol = -1;
+            drawBoard();
+            statusSpan.innerText = 'Новая игра!';
+            setTimeout(() => { if(!isAnimating) statusSpan.innerText = 'Игра активна'; }, 1500);
+        }
+        
+        // ---------- Обработка ввода ----------
+        function getCellFromPixel(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const canvasX = (clientX - rect.left) * scaleX;
+            const canvasY = (clientY - rect.top) * scaleY;
+            if (canvasX < 0 || canvasY < 0) return null;
+            const col = Math.floor(canvasX / cellW);
+            const row = Math.floor(canvasY / cellH);
+            if (row >= 0 && row < ROWS && col >=0 && col < COLS) return {row, col};
+            return null;
+        }
+        
+        let touchStartPos = null;
+        function onTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const cell = getCellFromPixel(touch.clientX, touch.clientY);
+            if (cell) {
+                touchStartPos = { x: touch.clientX, y: touch.clientY, row: cell.row, col: cell.col };
+            } else touchStartPos = null;
+        }
+        async function onTouchEnd(e) {
+            e.preventDefault();
+            if (isAnimating || !touchStartPos) { touchStartPos = null; return; }
+            const endTouch = e.changedTouches[0];
+            const endCell = getCellFromPixel(endTouch.clientX, endTouch.clientY);
+            if (!endCell) { touchStartPos = null; return; }
+            const dx = endTouch.clientX - touchStartPos.x;
+            const dy = endTouch.clientY - touchStartPos.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance < 20) {
+                if (selectedRow === touchStartPos.row && selectedCol === touchStartPos.col) {
+                    selectedRow = -1; selectedCol = -1;
+                } else if (selectedRow === -1) {
+                    selectedRow = touchStartPos.row; selectedCol = touchStartPos.col;
+                } else {
+                    const dr = Math.abs(selectedRow - touchStartPos.row);
+                    const dc = Math.abs(selectedCol - touchStartPos.col);
+                    if (dr + dc === 1) {
+                        await trySwap(selectedRow, selectedCol, touchStartPos.row, touchStartPos.col);
+                    } else {
+                        if (soundEnabled) playInvalidMoveSound();
+                        await animateErrorFlash();
+                    }
+                    selectedRow = -1; selectedCol = -1;
+                }
+                drawBoard();
+                touchStartPos = null;
+                return;
+            }
+            let nRow = touchStartPos.row, nCol = touchStartPos.col;
+            if (Math.abs(dx) > Math.abs(dy)) nCol += dx > 0 ? 1 : -1;
+            else nRow += dy > 0 ? 1 : -1;
+            if (nRow >= 0 && nRow < ROWS && nCol >= 0 && nCol < COLS) {
+                await trySwap(touchStartPos.row, touchStartPos.col, nRow, nCol);
+            } else {
+                if (soundEnabled) playInvalidMoveSound();
+                await animateErrorFlash();
+                await animateBounceEdge(touchStartPos.row, touchStartPos.col);
+                statusSpan.innerText = '❌ Край поля';
+                setTimeout(() => { if(!isAnimating) statusSpan.innerText = 'Игра активна'; }, 800);
+            }
+            selectedRow = -1; selectedCol = -1;
+            drawBoard();
+            touchStartPos = null;
+        }
+        function onMouseClick(e) {
+            if (isAnimating) return;
+            const cell = getCellFromPixel(e.clientX, e.clientY);
+            if (!cell) return;
+            if (selectedRow === -1) {
+                selectedRow = cell.row; selectedCol = cell.col;
+                drawBoard();
+            } else {
+                const dr = Math.abs(selectedRow - cell.row);
+                const dc = Math.abs(selectedCol - cell.col);
+                if (dr + dc === 1) {
+                    trySwap(selectedRow, selectedCol, cell.row, cell.col);
+                } else {
+                    if (soundEnabled) playInvalidMoveSound();
+                    animateErrorFlash();
+                }
+                selectedRow = -1; selectedCol = -1;
+                drawBoard();
+            }
+        }
+        
+        // ---------- Инициализация ----------
+        function initGame() {
+            loadBestScore();
+            restartGame();
+            canvas.addEventListener('mousedown', onMouseClick);
+            canvas.addEventListener('touchstart', onTouchStart, {passive: false});
+            canvas.addEventListener('touchend', onTouchEnd);
+            canvas.addEventListener('touchcancel', () => { touchStartPos = null; });
+            window.addEventListener('resize', () => drawBoard());
+            soundToggleBtn.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                soundToggleBtn.innerText = soundEnabled ? "🔊 Звук вкл" : "🔇 Звук выкл";
+                if (soundEnabled && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            });
+            themeToggleBtn.addEventListener('click', toggleTheme);
+            restartBtn.addEventListener('click', () => restartGame());
+            shuffleBtn.addEventListener('click', () => shuffleBoard());
+            applyTheme();
+            drawBoard();
+        }
+        
+        initGame();
+    })();
+</script>
+</body>
+</html>
